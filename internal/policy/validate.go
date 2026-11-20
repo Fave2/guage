@@ -219,10 +219,12 @@ func Acceptable(rule string) bool {
 }
 
 // nonAcceptable lists the rules an accepted-risk entry may never silence, from
-// ROADMAP task 2.4 and ARCHITECTURE.md 6.6.
+// ROADMAP task 2.4 and ARCHITECTURE.md 6.6. src-disagreement joined with task
+// 5.1: when two endpoints disagree the run cannot say which reading is true, so
+// accepting it would resolve the disagreement quietly.
 func nonAcceptable(rule string) bool {
 	switch rule {
-	case "acct-missing", "acct-network-mismatch", "sig-threshold-unreachable":
+	case "acct-missing", "acct-network-mismatch", "sig-threshold-unreachable", "src-disagreement":
 		return true
 	}
 	return false

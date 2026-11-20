@@ -1,6 +1,6 @@
 # ROADMAP: Gauge
 
-Last updated: 2026-11-20T10:05Z (docs: align AGENTS.md snapshot requirement citation to FR-15)
+Last updated: 2026-11-20T10:16Z (task 5.1: multi-endpoint comparison and src-disagreement)
 Roadmap version: 3
 
 This file is the single source of truth for remaining work. It is read before every task and updated after every change.
@@ -38,10 +38,10 @@ The repository is 100% ready when every task in Phases 0 to 6 is done and every 
 | 2 | Core | 11 | 11 | 100% |
 | 3 | Rules | 7 | 7 | 100% |
 | 4 | Dogfood and release v0.1.0 | 2 | 9 | 22% |
-| 5 | v0.2 features | 4 | 11 | 36% |
+| 5 | v0.2 features | 5 | 11 | 45% |
 | 6 | Release v0.2.0 and community | 0 | 5 | 0% |
 | 7 (backlog) | Backlog | 24 | 28 | 85% |
-| **Phases 0 to 6** | **Readiness total** | **57** | **79** | **72%** |
+| **Phases 0 to 6** | **Readiness total** | **58** | **79** | **73%** |
 | Gates | G1 to G10 | 3 | 10 | 30% |
 <!-- PROGRESS:END -->
 
@@ -200,7 +200,7 @@ Constraint on the two remaining experimental tasks: Gauge never builds or submit
 
 ### Phase 5: v0.2 features
 
-- [ ] **5.1** Multi-endpoint comparison with `src-disagreement`. M. Deps: 4.8.
+- [x] **5.1** Multi-endpoint comparison with `src-disagreement`. M. Deps: 4.8. (done 2026-11-20, ahead of 4.8 with the owner's written go-ahead on issue #53 that morning: 4.8 is still unticked and no `v0.1.0` tag exists, so this is the one task in the phase that landed out of dependency order, and the reason is that approval rather than a reading of the dependency. `check` takes `--endpoint` up to five times and `audit` reads every entry of `endpoints`. Every endpoint's network is read and its passphrase compared before any account read; one that cannot be read is exit 3, and one on another network makes the run read nothing anywhere and names that endpoint in `acct-network-mismatch`. Accounts are read from each endpoint in turn through the same bounded pool, the first endpoint's snapshot is the one the rules evaluate, and `source.Compare` (pure, symmetric) names the fields another endpoint disagrees on: existence, last modified ledger, sequence, thresholds, flags, signers and balances as multisets, home domain and sponsor. Each disagreeing endpoint is one HIGH `src-disagreement` whose evidence names endpoints by position and fields by name, never values, so the fingerprint holds while a replica keeps lagging and no chain string reaches evidence. It is on the non-acceptable list beside the three account and threshold rules, refused at load and at match, because the run cannot tell a stale endpoint from a filtering one. It is a source finding produced by the run, like `src-rule-panic`, not a seventeenth registered rule, so the rules stay pure and the rule count is unchanged. A sixth endpoint or a repeated one is exit 2. Tests: `internal/source/compare_test.go`, `internal/run/compare_test.go`, `cmd/stellar-gauge/compare_test.go` against two fake Horizons and the built fixture `testdata/horizon/13-endpoint-disagrees.json`.)
 - [ ] **5.2** `snapshot` and `diff` with baseline files and the review banner; documented guidance to store baselines outside the audited repo. M. Deps: 4.8.
 - [x] **5.3** Markdown output with safe escaping and fenced evidence. M. Deps: 2.5. (done 2026-11-20: `report.Markdown` in `internal/report/markdown.go`, selected by `--format markdown` on `check` and `audit`, which used to refuse it. It prints the same facts, findings, exit code and limits footer as the text report; every chain-derived value goes through the existing `sanitize.Markdown` after a label this code writes, so none can open a line, and evidence goes through the existing `sanitize.Fenced`. The sanitizer contract did not change. `internal/report/markdown_test.go` builds a link, an image, a script tag and a fence-breaking backtick run from fragments and proves each prints as escaped text or stays inside its fence; the sample and all eighteen Appendix B scenarios gained a markdown golden, 19 files, with the 38 text and JSON goldens byte-identical. The CLI test that pinned the refusal was replaced by one that proves the flag is accepted and one that proves the exit code and footer survive the format. Not verified: how a given renderer treats a bare URL, which GitHub may autolink with the URL as its visible text; `site/guides.html` says so. `README.md` still calls markdown unimplemented in two places, because `scripts/sync_readme.py --check-base` refuses any README change on a branch, not only the metrics block AGENTS.md 5 describes; the maintainer owns that edit. 5.2 and 5.4 stay open: 5.2 waits on 4.8, and 5.4 on 5.2.)
 - [ ] **5.4** Scheduled GitHub Action template that opens an issue on findings, with minimal permissions and SHA pinning. M. Deps: 5.2, 5.3.
@@ -300,6 +300,7 @@ Newest first. One row per merged change.
 
 | Date (UTC) | Change | Tasks |
 |---|---|---|
+| 2026-11-20 | Task 5.1: multi-endpoint comparison. `check --endpoint` repeats up to five times and `audit` reads every `endpoints` entry; every account is read from each endpoint and compared with the first by `source.Compare`, and a difference is one HIGH, non-acceptable `src-disagreement` per disagreeing endpoint, naming fields only. Any endpoint that fails is exit 3, any on another network reads nothing. Landed ahead of 4.8 with the owner's go-ahead on #53. Three CLI tests that pinned the single-endpoint refusal now pin the five-endpoint cap instead. Closes #53. | 5.1 |
 | 2026-11-20 | Task 5.3: added `report.Markdown` and `--format markdown` on `check` and `audit`. Every chain value passes through `sanitize.Markdown` and evidence through `sanitize.Fenced`. The sample and all eighteen Appendix B scenarios gain a markdown golden. Closes #55. | 5.3 |
 | 2026-11-20 | Close #178, #179 and #180 with three test-only contracts in `internal/rules`. `purity_test.go` proves `Evaluate`, `Facts` and every rule leave a deep-copied `Context` unchanged and that a second `Evaluate` is identical. `finding_ruleid_test.go` fires every registered rule and holds each finding's `RuleID` to its registry ID, failing on a missing row or a phantom ID. `arithmetic_guard_test.go` parses the package with `go/ast` and fails on a weight sum, a `20` cap or a `Weight` compared with 0 outside three allowlisted functions, and pins the three delegating call sites. Each was shown failing against a deliberate break. #180 asked for ID 7.10, which was already taken, so it is 7.32. Backlog rows added to `scripts/generate_issues.sh`; `project_structure.md` lists the new files. No production code changed. | 7.8, 7.9, 7.32 |
 | 2026-11-19 | Close #133, #134 and #135. `Severity.Valid` plus a marshal guard and a rank keep an out-of-range severity from sorting above high or entering a report as `"unknown"`. Added wire tests pinning AccountFacts null against zero and the AccountSnapshot sequence as a JSON string; neither of those two changed production code. Backlog rows added to `scripts/generate_issues.sh`; `project_structure.md` lists the three new test files. | 7.26, 7.27, 7.28 |

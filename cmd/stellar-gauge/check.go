@@ -14,10 +14,10 @@ import (
 
 func checkCommand(args []string, stdout, stderr io.Writer, d deps) int {
 	fs := newFlagSet("check", stderr,
-		"usage: stellar-gauge check --network NETWORK --endpoint URL [--format text|json|markdown] [--fail-on high|warn] G...")
+		"usage: stellar-gauge check --network NETWORK --endpoint URL [--endpoint URL ...] [--format text|json|markdown] [--fail-on high|warn] G...")
 	network := fs.String("network", "", "mainnet, testnet, or a full network passphrase")
 	endpoints := &stringList{}
-	fs.Var(endpoints, "endpoint", "Horizon endpoint; exactly one at v0.1")
+	fs.Var(endpoints, "endpoint", "Horizon endpoint; repeat it, up to five times, to compare endpoints")
 	format := fs.String("format", "text", "output format: text, json or markdown")
 	failOn := fs.String("fail-on", "high", "fail at this severity: high or warn")
 	if err := fs.Parse(args); err != nil {
@@ -29,9 +29,11 @@ func checkCommand(args []string, stdout, stderr io.Writer, d deps) int {
 	if *network == "" {
 		return usageError(stderr, "--network is required and has no default: mainnet, testnet or a full passphrase")
 	}
-	if endpoints.Len() != 1 {
-		return usageError(stderr, "exactly one --endpoint is required at v0.1, and it has no default: "+
-			namedEndpoints+"Pass it twice once endpoint comparison lands.")
+	// The count above one is the orchestrator's to bound, so a sixth endpoint and
+	// a repeated one are refused in one place for check and audit alike.
+	if endpoints.Len() == 0 {
+		return usageError(stderr, "--endpoint is required and has no default: "+
+			namedEndpoints+"Repeat it to compare endpoints.")
 	}
 	ids := fs.Args()
 	if len(ids) == 0 {

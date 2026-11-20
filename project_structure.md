@@ -63,6 +63,8 @@ guage/
       source.go                           # Source interface and the passphrase comparison
       {horizon,http,errors}.go             # Horizon client: caps, retries, strict decode (2.7)
       horizon_test.go                     # fake-server success and failure-mode tests (2.7)
+      compare.go                          # pure field-by-field comparison of two endpoints' readings, names only (5.1)
+      compare_test.go                     # every compared field, order and run metadata ignored, existence, no values (5.1)
     sep1/
       {fetch,guard,parse}.go               # guarded identity acquisition: hostname check, dial-time IP guard, caps (3.5)
       {fetch_test,guard_test,parse_test}.go # SSRF, rebinding, redirect, size, sanitizer-boundary and parse tests (3.5)
@@ -81,7 +83,9 @@ guage/
       {limits,empty,nil_facts}_test.go    # golden-free contracts: limits footer last and a JSON key, the empty report in both formats, nil and empty fact blocks (7.14 to 7.16)
     run/
       {run,check,audit}.go                 # P0 orchestration: passphrase, bounded fetch, identity fetch, role severity, accepts, the fact block and `HasPolicy` (2.8, 3.4, 3.5, 3.7)
-      {compare,snapshot,diff}.go           # P1 orchestration (5.1, 5.2)
+      compare.go                          # multi-endpoint orchestration: connect every endpoint, cross-read, src-disagreement, the 5-endpoint cap (5.1)
+      compare_test.go                     # agreement, disagreement per endpoint, existence, fail-closed, mixed networks, no accepts, bounded pool (5.1)
+      {snapshot,diff}.go                   # P1 orchestration (5.2)
       run_test.go                         # end-to-end orchestration with a fake source and an offline fetcher, the UTC expiry judgement and the two builders' fact shapes (2.8, 3.4, 3.5, 3.7)
       roles_test.go                       # one account at five roles: severity, fingerprint, accepts and the lock declaration (3.4)
 
@@ -89,6 +93,7 @@ guage/
     horizon/README.md                     # provenance of every file: which five are testnet captures, which seven are built, and how (0.6, 3.6)
     horizon/{root-testnet,1-default,7-extra-signer,8-clawback-undeclared,10-not-found}.json  # captures (0.6)
     horizon/{2-master-zero,3-unreachable-high,4-thresholds-out-of-order,5-hashx-signer-at-medium,6-preauth-signer-only,9-home-domain-present,12-hostile-home-domain}.json  # built for Appendix B (3.6)
+    horizon/13-endpoint-disagrees.json    # built: 1-default with two fields changed, the second endpoint of the src-disagreement CLI tests (5.1)
     policy/.gitkeep                       # still empty: a scenario declares its policy as `policy.Account` values in `internal/run/scenarios_test.go`, and acceptance and role cases are inline TOML in `internal/policy`
     golden/{sample.text,sample.json}.golden # regenerated only with `-update` and reviewed (2.6)
     golden/<scenario>.{text,json}.golden  # one pair per Appendix B case, 36 files, compared by `internal/run/scenarios_test.go` (3.6, 3.7)

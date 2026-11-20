@@ -561,7 +561,12 @@ func TestRunRejectsInvalidJobs(t *testing.T) {
 	}{
 		{"no network", func(j *Job) { j.Network = "" }},
 		{"no endpoint", func(j *Job) { j.Endpoints = nil }},
-		{"two endpoints", func(j *Job) { j.Endpoints = append(j.Endpoints, "https://second.example") }},
+		{"more endpoints than the cap", func(j *Job) {
+			for i := len(j.Endpoints); i <= maxEndpoints; i++ {
+				j.Endpoints = append(j.Endpoints, "https://extra-"+string(rune('a'+i))+".example")
+			}
+		}},
+		{"an endpoint listed twice", func(j *Job) { j.Endpoints = append(j.Endpoints, j.Endpoints[0]) }},
 		{"no accounts", func(j *Job) { j.Accounts = nil }},
 		{"negative concurrency", func(j *Job) { j.Concurrency = -1 }},
 		{"unknown failure threshold", func(j *Job) { j.FailOn = model.Severity(9) }},

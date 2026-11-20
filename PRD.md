@@ -120,7 +120,7 @@ Priority: **P0** ships in v0.1.0, **P1** in v0.2.0, **Later** is backlog. Task I
 | FR-11 | HTTP hygiene: timeouts, body size caps, bounded retries, bounded concurrency | P0 | Oversized or slow responses fail closed |
 | FR-12 | `stellar.toml` identity rules with an SSRF-guarded fetcher | P0 | Private, loopback and link-local targets are refused |
 | FR-13 | Roadmap gate: `scripts/check_roadmap_touched.sh`, PR template checkbox, required CI check | P0 | A PR that changes any file but not `ROADMAP.md` fails |
-| FR-14 | Multi-endpoint comparison (`src-disagreement`) | P1 | Two endpoints that disagree raise HIGH |
+| FR-14 | Multi-endpoint comparison (`src-disagreement`) | P1 | Two endpoints that disagree raise HIGH. Implemented 2026-11-20 (task 5.1): up to five endpoints, compared with the first, not acceptable |
 | FR-15 | `snapshot` and `diff` against a saved baseline | P1 | Added or removed signers and changed thresholds are listed |
 | FR-16 | Markdown output | P1 | Renders in a GitHub step summary safely |
 | FR-17 | Scheduled GitHub Action template that opens an issue on findings | P1 | Drift triggers a visible failure |
@@ -317,7 +317,7 @@ Full tables with task IDs: `ARCHITECTURE.md` section 14.
 **What would break:**
 
 - **GB1.** Expectations in `gauge.toml` can be edited to match an attacker's change, so a scheduled check goes green. Same class as Airlock's B2. Mitigation is process (protected branch, CODEOWNERS, separate baseline), not code.
-- **GB2.** A single endpoint can lie, lag or vanish. Unreachable is exit 3; two-endpoint comparison is P1.
+- **GB2.** A single endpoint can lie, lag or vanish. Unreachable is exit 3; multi-endpoint comparison (P1) shipped with task 5.1 as `src-disagreement`.
 - **GB4.** "Posture OK" will be read as "safe". Wording and an explicit limits section address it; no code can fix the underlying gap (key custody is off-chain).
 - **GB7.** Users will paste secret seeds into the command line, and shell history keeps them. Rejection with a rotate-the-key message is P0.
 

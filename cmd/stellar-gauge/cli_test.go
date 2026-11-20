@@ -183,12 +183,22 @@ func TestCheckRejectsBadArguments(t *testing.T) {
 		{
 			name:    "no endpoint",
 			args:    []string{"check", "--network", testNetwork, accountOne},
-			wantMsg: "exactly one --endpoint is required",
+			wantMsg: "--endpoint is required",
 		},
 		{
-			name:    "two endpoints",
-			args:    []string{"check", "--network", testNetwork, "--endpoint", "https://a.invalid", "--endpoint", "https://b.invalid", accountOne},
-			wantMsg: "exactly one --endpoint is required",
+			// Two to five endpoints are a comparison since task 5.1; a sixth is
+			// refused before any of them is dialled.
+			name: "six endpoints",
+			args: []string{"check", "--network", testNetwork,
+				"--endpoint", "https://a.invalid", "--endpoint", "https://b.invalid",
+				"--endpoint", "https://c.invalid", "--endpoint", "https://d.invalid",
+				"--endpoint", "https://e.invalid", "--endpoint", "https://f.invalid", accountOne},
+			wantMsg: "at most 5 endpoints",
+		},
+		{
+			name:    "an endpoint passed twice",
+			args:    []string{"check", "--network", testNetwork, "--endpoint", "https://a.invalid", "--endpoint", "https://a.invalid", accountOne},
+			wantMsg: "listed twice",
 		},
 		{
 			name:    "no accounts",
@@ -679,10 +689,16 @@ func TestAuditFailsClosed(t *testing.T) {
 			never:    seed,
 		},
 		{
-			name:     "two endpoints",
-			body:     strings.Replace(policyFor(srv.URL), "endpoints = [\"", "endpoints = [\"https://second.invalid\", \"", 1),
+			name:     "six endpoints",
+			body:     strings.Replace(policyFor(srv.URL), "endpoints = [\"", "endpoints = [\"https://a.invalid\", \"https://b.invalid\", \"https://c.invalid\", \"https://d.invalid\", \"https://e.invalid\", \"", 1),
 			wantCode: 2,
-			wantMsg:  "multi-endpoint",
+			wantMsg:  "at most 5 endpoints",
+		},
+		{
+			name:     "an accepted disagreement",
+			body:     policyFor(srv.URL) + "\n[[accept]]\nrule = \"src-disagreement\"\naccount = \"" + accountOne + "\"\nreason = \"lagging replica\"\n",
+			wantCode: 2,
+			wantMsg:  "may be accepted",
 		},
 		{
 			name:     "no accounts",

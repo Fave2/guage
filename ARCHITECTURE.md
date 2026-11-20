@@ -77,7 +77,7 @@ Rules are pure functions over a snapshot and a policy. All network I/O lives in 
 Residual risks that code cannot remove:
 
 - An attacker who can edit the policy file and the scheduled workflow can make the check pass. Mitigations are process controls (section 11).
-- A single compromised endpoint can lie. Two-endpoint comparison (P1) narrows this.
+- A single compromised endpoint can lie. Multi-endpoint comparison (task 5.1) narrows this when the policy lists more than one endpoint; endpoints run by the same operator, or all lying the same way, still agree.
 - Posture is not custody. Key storage and key-holder identity are invisible on-chain.
 
 ## 5. Repository layout
@@ -209,7 +209,7 @@ Fetches `https://{home_domain}/.well-known/stellar.toml` for identity checks.
 - Account IDs must be `G` addresses. A secret seed anywhere in the file aborts with exit 2 and a rotate-the-key message that does not repeat the value.
 - `network` is required and must be `mainnet`, `testnet` or a full passphrase. There is no default.
 - Role profiles map role to severity adjustments (PRD Appendix A). Implemented 2026-11-04 (task 3.4) as `policy.SeverityFor`, which reads the appendix as a floor: a role raises a finding to the severity its own row names and never lowers one, so a declaration of purpose cannot soften `acct-missing`, `acct-network-mismatch` or `sig-threshold-unreachable`, and the two role expectations the appendix states as words rather than severities (`issuer` expects a home domain, `issuer` may declare `expect_locked`) are read from the same table by the rules that own them.
-- `[[accept]]` entries: `rule`, `account`, `reason` required; `expires` optional; no wildcards; some rules are not acceptable (`acct-missing`, `acct-network-mismatch`, `sig-threshold-unreachable`).
+- `[[accept]]` entries: `rule`, `account`, `reason` required; `expires` optional; no wildcards; some rules are not acceptable (`acct-missing`, `acct-network-mismatch`, `sig-threshold-unreachable`, and since task 5.1 `src-disagreement`).
 - Implemented 2026-10-30 (task 2.4): decoding uses `github.com/BurntSushi/toml` v1.6.0 with `MetaData.Undecoded`, so an unknown key anywhere in the file is an error, and the file is capped at 1 MiB. A secret seed is found by scanning the raw text for an `S` token that validates as a strkey, so it is rejected even in a comment; the error never contains it. Rejections carry a category (`Error.Kind`) and a field path, which is what the CLI maps to exit 2. Since 7.31 (2026-11-19) an unknown-key rejection names every undecoded key path in one error, sorted and joined with `, ` (for example `account.owners, expectedflags, zendpoints`), so several misspellings cost one edit cycle; the kind, message and exit code are unchanged and the detail still holds paths only, never a value. Network names resolve to their published passphrases, and any other network value is treated as the passphrase itself.
 - Endpoint scheme, amended 2026-10-30 during 2.9: `https` anywhere, plain `http` only for a loopback host. The schema now mirrors `internal/source`, which already refused plain HTTP for any other host, so a policy can name every endpoint the client itself accepts and no runtime surprise replaces a config error. The enforcement point is unchanged: `source.normalizeEndpoint` still rejects a non-loopback `http` endpoint before any request is made.
 
@@ -402,12 +402,12 @@ Baseline files (P1) are JSON serializations of `AccountSnapshot` with a schema v
 | Input is `M` or `C` address | exit 2 with a clear message |
 | Unknown config key, missing `version`, missing `network` | exit 2 |
 | `stellar.toml` unreachable, oversized, blocked by the guard or unparsable | `id-toml-unreachable` (WARN) |
-| Two endpoints disagree (P1) | `src-disagreement` (HIGH) |
+| Two endpoints disagree | `src-disagreement` (HIGH), not acceptable |
 | Rule panics | recovered, reported as a HIGH internal finding, exit 3 |
 
 Exit codes: 0 pass; 1 findings at or above `fail_on`; 2 configuration or usage error; 3 source or internal error. Anything nonzero fails CI.
 
-As implemented through tasks 3.2, 3.3 and 3.5, the `acct-network-mismatch`, `acct-missing` and `id-toml-unreachable` rows are active. The two account findings are HIGH and neither can be accepted, so they fail the default threshold and keep gate G3's exit non-zero. A passphrase mismatch reads no account at all: each account is marked skipped and carries the finding. `id-toml-unreachable` is a WARN, so its fail-closed shape is different: an identity Gauge could not verify never reads as a clean report, but it stops a gate only at `--fail-on warn`, and what does abort with exit 3 is a fetcher that will not build, because then nothing was verified. `src-disagreement` remains inactive until task 5.1, and an unreachable endpoint, an oversized body or a malformed response still exits 3 with no report. Exit 1 therefore means the run completed and the chain disagreed with the request; exit 3 still means no trustworthy comparison exists. Neither the role table nor an accepted risk changes that contract: severities are floors, so a declared role cannot move `acct-missing`, `acct-network-mismatch` or `sig-threshold-unreachable` at all, and none of those three can be silenced by an `[[accept]]` entry.
+As implemented through tasks 3.2, 3.3 and 3.5, the `acct-network-mismatch`, `acct-missing` and `id-toml-unreachable` rows are active. The two account findings are HIGH and neither can be accepted, so they fail the default threshold and keep gate G3's exit non-zero. A passphrase mismatch reads no account at all: each account is marked skipped and carries the finding. `id-toml-unreachable` is a WARN, so its fail-closed shape is different: an identity Gauge could not verify never reads as a clean report, but it stops a gate only at `--fail-on warn`, and what does abort with exit 3 is a fetcher that will not build, because then nothing was verified. `src-disagreement` is active since task 5.1 (2026-11-20): with two to five endpoints configured, every account is read from each and compared with the first, a difference in existence, last modified ledger, sequence, thresholds, flags, signers, home domain, sponsor or balances is one HIGH finding per disagreeing endpoint, and it cannot be accepted. An unreachable endpoint, any endpoint among several, an oversized body or a malformed response still exits 3 with no report. Exit 1 therefore means the run completed and the chain disagreed with the request; exit 3 still means no trustworthy comparison exists. Neither the role table nor an accepted risk changes that contract: severities are floors, so a declared role cannot move `acct-missing`, `acct-network-mismatch` or `sig-threshold-unreachable` at all, and none of those three can be silenced by an `[[accept]]` entry.
 
 ## 9. Rule specifications
 
@@ -479,7 +479,7 @@ Design-review analysis. The scenarios below are not tests, and none of them has 
 | ID | Scenario | Why it breaks | L / I | Resolution | Task |
 |---|---|---|---|---|---|
 | GB1 | Attacker edits `gauge.toml` and the scheduled workflow to match the changed account | Expectations are policy stored with the code | M / H | Protected branch, CODEOWNERS, baseline stored outside the repo (P1), document the residual risk | 1.3, 5.2 |
-| GB2 | Endpoint lies, lags or vanishes | Single source of truth | M / M | Fail closed on errors; two-endpoint comparison; endpoint ledger in output | 2.7, 5.1 |
+| GB2 | Endpoint lies, lags or vanishes | Single source of truth | M / M | Fail closed on errors; multi-endpoint comparison (5.1, done); endpoint ledger in output | 2.7, 5.1 |
 | GB3 | Operators never write a config | Zero config only gives universal rules | H / M | Facts report landed 2026-11-05 (3.7), so a zero-config run prints what it read rather than only what it judged; `snapshot` to bootstrap expectations with a loud review banner remains | 5.2 |
 | GB4 | "No findings" is read as "safe" | Key custody and key-holder identity are invisible on-chain | H / H | "Posture" wording, an explicit limits section in the README and every report footer | 4.3 |
 | GB5 | Threshold math is wrong at the edges | Semantics are subtle (threshold 0, weight 0 master, leftover signatures) | M / H | Pure function, brute-force cross-check, testnet experiments | 0.7, 2.3 |
@@ -527,7 +527,7 @@ Design-review analysis. The scenarios below are not tests, and none of them has 
 | GO5 | Asset and address reputation scoring | Cut | Webacy territory and needs a data moat |
 | GO6 | Soroban contract-account auditing | Cut | Other tools cover contracts |
 | GO7 | RPC source in v0.1 | Defer | Horizon first; interface keeps the door open |
-| GO8 | Two-endpoint quorum in v0.1 | Defer | P1; single endpoint with fail-closed first |
+| GO8 | Two-endpoint quorum in v0.1 | Defer | P1; single endpoint with fail-closed first. Shipped as comparison, not quorum, by task 5.1: endpoints are never outvoted, a disagreement is reported |
 | GO9 | Importing the full Stellar SDK | Cut | Own strkey package suffices |
 | GO10 | A CLI framework | Cut | `flag` is enough |
 | GO11 | Trustline exposure scoring | Defer | Facts only, in P1 |

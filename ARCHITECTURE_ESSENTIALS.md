@@ -47,7 +47,7 @@ Status: design target v0.1; Phase 3 is complete as of 2026-11-05 and v0.1.0 now 
 
 `policy loader + Source + sep1 -> snapshots -> rules + facts -> accept filter -> report -> exit code` [3]
 
-- `source`: `Network()`, `Account()`; Horizon first, RPC later. [6.4]
+- `source`: `Network()`, `Account()`; Horizon first, RPC later. `source.Compare` is the pure field-by-field comparison behind `src-disagreement` (5.1): field names only, never values. [6.4]
 - `rules`: pure functions over `AccountSnapshot` plus policy, and one pure `Facts` function over the same context that returns observations rather than findings. [6.7]
 - `report`: text, JSON, markdown (P1, shipped by 5.3); facts printed ahead of findings, then ordering severity, account, rule. Exit reads findings only, so a fact cannot fail a run. [6.8]
 
@@ -83,7 +83,7 @@ Verified from the protocol implementation by task 0.7 on 2026-11-04, at stellar-
 
 `acct-missing`, `acct-network-mismatch`, `sig-no-signing-weight`, `sig-threshold-unreachable`, `sig-threshold-order`, `sig-single-key-high`, `sig-hashx`, `sig-unexpected-signer`, `sig-missing-expected`, `sig-weight-drift`, `thr-drift`, `flag-drift`, `flag-undeclared-clawback`, `id-no-home-domain`, `id-toml-unreachable`, `id-toml-account-unlisted`.
 
-- Role profiles raise severity to the Appendix A floor and never lower it; `policy.SeverityFor` is the only reader of that table and `internal/run` applies it once per account, before accepts. Not acceptable via `[[accept]]`: `acct-missing`, `acct-network-mismatch`, `sig-threshold-unreachable`.
+- Role profiles raise severity to the Appendix A floor and never lower it; `policy.SeverityFor` is the only reader of that table and `internal/run` applies it once per account, before accepts. Not acceptable via `[[accept]]`: `acct-missing`, `acct-network-mismatch`, `sig-threshold-unreachable`, `src-disagreement`.
 - All sixteen are live as of 2026-11-04: task 3.1 landed the nine signer and threshold rules in `internal/rules/signers.go` and `internal/rules/thresholds.go`, and task 3.4 raised the four the catalog phrases by role at the run rather than inside a rule.
 - The signer and threshold rules call `internal/threshold` and never restate the arithmetic. If you find a weight sum, a 20 cap or a zero-weight filter written inside a rule, that is the bug.
 - `sig-single-key-high` emits INFO, which is Appendix A's `other` row and what `check` keeps getting because it declares no role. A role raises it, at the run. Do not move the table into the rule and do not suppress the finding.
@@ -120,7 +120,7 @@ Verified from the protocol implementation by task 0.7 on 2026-11-04, at stellar-
 ## 13. Cut or deferred (do not build without a roadmap decision) [14.3]
 
 - Cut: watch daemon, alert integrations, rules language, dashboard, reputation scoring, contract-account auditing, CLI framework, full Stellar SDK import.
-- Deferred: RPC source, two-endpoint comparison, snapshot and diff, trustline exposure, SEP-29 check.
+- Deferred: RPC source, snapshot and diff, trustline exposure, SEP-29 check.
 
 ## 14. Known unknowns (do not assume) [15]
 

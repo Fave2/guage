@@ -56,8 +56,9 @@ type Job struct {
 	Now         func() time.Time
 }
 
-// Run verifies the endpoint's network, fetches every account with a bounded
-// worker pool, reads the stellar.toml of every account that publishes a home
+// Run verifies every endpoint's network, fetches every account with a bounded
+// worker pool, compares what each further endpoint reports with the first,
+// reads the stellar.toml of every account that publishes a home
 // domain through the guarded fetcher, evaluates rules, applies accepted risks
 // and maps the result to an exit code. It returns an error only when no
 // trustworthy report exists.
@@ -74,26 +75,34 @@ func Run(ctx context.Context, job Job) (model.Report, error) {
 		factory = horizonFactory(job.ToolVersion)
 	}
 
-	src, err := factory(job.Endpoints[0])
+	endpoints, err := connect(ctx, factory, job.Endpoints)
 	if err != nil {
-		return model.Report{}, fmt.Errorf("run: building the source: %w", err)
-	}
-	info, err := src.Network(ctx)
-	if err != nil {
-		return model.Report{}, fmt.Errorf("run: reading the network: %w", err)
+		return model.Report{}, err
 	}
 	// A mismatch is a finding about the endpoint, not a transport failure, so
 	// the run reports it per account instead of stopping. Nothing is read from
-	// an endpoint on the wrong network.
+	// any endpoint when one of them is on the wrong network, and the report
+	// names the first endpoint that is, so with one endpoint configured this is
+	// the same check it always was.
+	reporting := endpoints[0]
 	mismatch := false
-	if err := source.CheckPassphrase(info, job.Network); err != nil {
-		if !errors.Is(err, source.ErrPassphraseMismatch) {
-			return model.Report{}, fmt.Errorf("run: %w", err)
+	for _, ep := range endpoints {
+		if err := source.CheckPassphrase(ep.info, job.Network); err != nil {
+			if !errors.Is(err, source.ErrPassphraseMismatch) {
+				return model.Report{}, fmt.Errorf("run: %w", err)
+			}
+			reporting = ep
+			mismatch = true
+			break
 		}
-		mismatch = true
 	}
+	info := reporting.info
 
-	observations, err := observe(ctx, src, job.Endpoints[0], job.Accounts, job.Concurrency, mismatch)
+	observations, err := observe(ctx, reporting.src, reporting.url, job.Accounts, job.Concurrency, mismatch)
+	if err != nil {
+		return model.Report{}, fmt.Errorf("run: %w", err)
+	}
+	disagreed, err := crossRead(ctx, endpoints, job.Accounts, job.Concurrency, observations, mismatch)
 	if err != nil {
 		return model.Report{}, fmt.Errorf("run: %w", err)
 	}
@@ -123,6 +132,9 @@ func Run(ctx context.Context, job Job) (model.Report, error) {
 		}
 		findings, recovered := evaluate(job.Evaluate, ruleContext)
 		panicked = panicked || recovered
+		if disagreed != nil {
+			findings = append(findings, disagreed[i]...)
+		}
 		applyRoles(job.Accounts[i].Role, findings)
 		applyAccepts(findings, job.Accepts, now())
 		model.SortFindings(findings)
@@ -159,8 +171,15 @@ func (job Job) validate() error {
 	if len(job.Endpoints) == 0 {
 		return fmt.Errorf("%w: no endpoint", ErrUsage)
 	}
-	if len(job.Endpoints) > 1 {
-		return fmt.Errorf("%w: multi-endpoint comparison is not implemented", ErrUsage)
+	if len(job.Endpoints) > maxEndpoints {
+		return fmt.Errorf("%w: at most %d endpoints can be compared", ErrUsage, maxEndpoints)
+	}
+	seen := make(map[string]bool, len(job.Endpoints))
+	for _, endpoint := range job.Endpoints {
+		if seen[endpoint] {
+			return fmt.Errorf("%w: an endpoint is listed twice, so it would only be compared with itself", ErrUsage)
+		}
+		seen[endpoint] = true
 	}
 	if len(job.Accounts) == 0 {
 		return fmt.Errorf("%w: no accounts", ErrUsage)
