@@ -100,7 +100,7 @@ stellar-gauge version
 
 `go run ./cmd/stellar-gauge ...` is the same code without the build step, which is fine for one account and slower than a cached binary on a schedule.
 
-`check` takes accounts on the command line and needs an explicit network and at least one endpoint; repeat `--endpoint`, up to five times, to compare endpoints, and any account they disagree about gets a HIGH `src-disagreement` (task 5.1). Neither the network nor the endpoint has a default, and the usage error names both public endpoints so there is one thing to read: a silent default to mainnet is how an audit ends up reading the wrong ledger. `audit` reads accounts, roles and expectations from the policy file, whose `endpoints` entry supplies the endpoint; run it with no `gauge.toml` and it tells you to copy `gauge.example.toml`. Both take `--format text|json` and `--fail-on high|warn`; markdown output is not implemented yet.
+`check` takes accounts on the command line and needs an explicit network and one endpoint. Neither has a default, and the usage error names both public endpoints so there is one thing to read: a silent default to mainnet is how an audit ends up reading the wrong ledger. `audit` reads accounts, roles and expectations from the policy file, whose `endpoints` entry supplies the endpoint; run it with no `gauge.toml` and it tells you to copy `gauge.example.toml`. Both take `--format text|json` and `--fail-on high|warn`; markdown output is not implemented yet.
 
 A text report reads facts first, then judgements. This is the whole output of one `check` against a fresh testnet account, pasted as the binary printed it on 2026-11-05 at ledger 5570026, with nothing elided:
 
