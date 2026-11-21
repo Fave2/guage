@@ -14,12 +14,13 @@ import (
 
 func checkCommand(args []string, stdout, stderr io.Writer, d deps) int {
 	fs := newFlagSet("check", stderr,
-		"usage: stellar-gauge check --network NETWORK --endpoint URL [--endpoint URL ...] [--format text|json|markdown] [--fail-on high|warn] G...")
+		"usage: stellar-gauge check --network NETWORK --endpoint URL [--endpoint URL ...] [--format text|json|markdown] [--fail-on high|warn] [--concurrency N] G...")
 	network := fs.String("network", "", "mainnet, testnet, or a full network passphrase")
 	endpoints := &stringList{}
 	fs.Var(endpoints, "endpoint", "Horizon endpoint; repeat it, up to five times, to compare endpoints")
 	format := fs.String("format", "text", "output format: text, json or markdown")
 	failOn := fs.String("fail-on", "high", "fail at this severity: high or warn")
+	concurrency := fs.String("concurrency", "8", "maximum concurrent account and identity reads (1-32)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return int(model.ExitPass)
@@ -44,7 +45,11 @@ func checkCommand(args []string, stdout, stderr io.Writer, d deps) int {
 		return usageError(stderr, "--fail-on must be high or warn")
 	}
 	if !validFormat(*format) {
-		return usageError(stderr, "--format must be text, json or markdown")
+		return usageError(stderr, formatRejection(*format))
+	}
+	concurrencyLimit, ok := parseConcurrency(*concurrency)
+	if !ok {
+		return usageError(stderr, "--concurrency must be between 1 and 32")
 	}
 	if err := validateAccountArgs(ids); err != nil {
 		fmt.Fprintf(stderr, "stellar-gauge: %v\n", err)
@@ -57,6 +62,7 @@ func checkCommand(args []string, stdout, stderr io.Writer, d deps) int {
 		Endpoints:   *endpoints,
 		Accounts:    ids,
 		FailOn:      severity,
+		Concurrency: concurrencyLimit,
 		NewSource:   d.newSource,
 		NewIdentity: d.newIdentity,
 	})

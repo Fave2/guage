@@ -1,13 +1,15 @@
 package policy
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/posture-sec/guage/internal/strkey"
 )
 
 // MaxConfigBytes bounds how much of a policy file is read. A policy is a small
@@ -31,6 +33,9 @@ func Load(r io.Reader) (*Config, error) {
 	var cfg Config
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
+		if detail := parseDetail(err); detail != "" {
+			return nil, withDetail(ErrSyntax, detail)
+		}
 		return nil, ErrSyntax
 	}
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
@@ -65,8 +70,29 @@ func LoadFile(path string) (*Config, error) {
 	return Load(f)
 }
 
-// containsSeed scans the raw text for a token that is a valid S strkey, so a
-// seed is rejected even in a comment or an unknown key. The token is never
+// parseDetail keeps the decoder's position without keeping its message, which
+// can quote a line from the file. BurntSushi/toml v1.6.0 returns ParseError as
+// a value, so both the value and pointer shapes are checked.
+func parseDetail(err error) string {
+	var value toml.ParseError
+	if !errors.As(err, &value) {
+		var pointer *toml.ParseError
+		if !errors.As(err, &pointer) || pointer == nil {
+			return ""
+		}
+		value = *pointer
+	}
+	detail := fmt.Sprintf("line %d, column %d", value.Position.Line, value.Position.Col)
+	if value.LastKey != "" {
+		detail += ", last key " + strconv.Quote(value.LastKey)
+	}
+	return detail
+}
+
+// containsSeed scans the raw text for a 56-character base32 token beginning
+// with S or s, the shape of a secret seed. It rejects the token regardless of
+// whether the checksum validates, because a single mistyped character turns a
+// real seed into a corrupted copy that must not be echoed. The token is never
 // returned and the caller never sees it.
 func containsSeed(data []byte) bool {
 	for i := 0; i < len(data); {
@@ -79,7 +105,7 @@ func containsSeed(data []byte) bool {
 			j++
 		}
 		tok := string(data[i:j])
-		if len(tok) == 56 && (tok[0] == 'S' || tok[0] == 's') && strkey.IsSeed(strings.ToUpper(tok)) {
+		if len(tok) == 56 && (tok[0] == 'S' || tok[0] == 's') {
 			return true
 		}
 		i = j
