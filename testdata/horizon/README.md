@@ -25,7 +25,7 @@ exists on any network and nothing here is fetched at test time.
 | `9-home-domain-present.json` | built | the reachable-domain halves of 9 | `GBKDXQ7LCO3X23K4HUKSHCA3KMM3364M4UK3526XYMBWTDD4NJCSRNAI` at 5466906 |
 | `10-not-found.json` | captured | 10, the not-found half | `GC2HHIM66CBKJFMYOHECBMKD4NWRGWJ3FEXFDPWPT4TLS7OFR43LO2II`, a `404` with `Latest-Ledger` 5466896 |
 | `12-hostile-home-domain.json` | built | 12 | `GDF6B4EQSNXLTSN4QROIVYLIKDFGUOZLCAGGWSGFAKPY7US72Y4A2IRJ` at 5466907 |
-| `13-endpoint-disagrees.json` | built | none (task 5.1, `src-disagreement`) | `GBK4NFJ7SVMUNPBIYBC4WNMCTKI6Z66MYYWZQSSLQNOSUSTMKVUKE7M3` at 5465023, the `1-default.json` account as a disagreeing endpoint would serve it |
+| `16-endpoint-disagrees.json` | built | none (task 5.1, `src-disagreement`) | `GBK4NFJ7SVMUNPBIYBC4WNMCTKI6Z66MYYWZQSSLQNOSUSTMKVUKE7M3` at 5465023, the `1-default.json` account as a disagreeing endpoint would serve it |
 
 Scenario 10 has a second half, the network passphrase mismatch, and it needs no
 account file: the run asks for a mainnet network against a testnet endpoint, so
@@ -96,7 +96,7 @@ survive a checkout and a patch. The decoder hands that string over untouched and
 render. `internal/run/scenarios_test.go` asserts all three of those statements
 rather than trusting the golden that prints the clean-looking result.
 
-`13-endpoint-disagrees.json` is `1-default.json` byte for byte except two
+`16-endpoint-disagrees.json` is `1-default.json` byte for byte except two
 values: `high_threshold` is 2 rather than 0 and the master signer's `weight` is
 2 rather than 1. It is the second endpoint in the `cmd/stellar-gauge` tests for
 task 5.1, served beside the capture so the real client decodes both and the run

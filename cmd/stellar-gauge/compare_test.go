@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const fixtureDisagrees = "../../testdata/horizon/13-endpoint-disagrees.json"
+const fixtureDisagrees = "../../testdata/horizon/16-endpoint-disagrees.json"
 
 // Task 5.1 end to end: two fake Horizons behind the real client, so the decode,
 // the passphrase check on each endpoint and the comparison all run as shipped.
